@@ -4,22 +4,24 @@
 % Date: 08/10/2021
 %% Variable initializations
 clearvars; close all;clc;
-a = 70;   
-b = 100;  
-c = 90;   
-d = 110;  
 
-e = 120;  
-f=160;
-g = 150;    
+% First loop
+a = 70;     % Crank AB
+b = 100;    % Coupler BC
+c = 90;     % Rocker CD
+d = 110;    % Ground AD
 
-g2 = 150;    
+% Second loop
+e = 120;    % Crank EG 
+f = 160;    % Coupler FG
+g = 150;    % Rocker DE
 
-gamma = 30*pi/180;
-delta = 20*pi/180;
+g2 = 200;   % Ground AG 
+
+delt_c = 30*pi/180;
+gamma  = 20*pi/180;
 
 %%
-
 N = 361;
 theta1 = 0;
 xA = [0;0]; % ground pin at A
@@ -27,20 +29,25 @@ xD = [d;0]; % ground pin at D
 
 [theta3,theta4,theta5,theta6] = deal(zeros(1,N));
 
-% initial guesses for Newton-Raphson algorithm
-t3 = 1.1; t4 = 1.5; t5 =0.5; t6 = 4.7;
+% Initial guesses for Newton-Raphson algorithm in rad
+t3 = 1.1; 
+t4 = 1.5; 
+t5 = 0.5; 
+t6 = 4.7;
 
-%Pre-allocation for optimization
+% Pre-allocation for optimization
 AB = zeros(2,N);
 BC = zeros(2,N);
 AF = zeros(2,N);
 DE = NaN(2,N);
 FG = zeros(2,N);
 EG = zeros(2,N);
+
 theta2 = zeros(1,N);
 
 %%
 figure(1);
+
 for k=1:N
     theta2(k) = (k-1)*(2*pi)/(N-1);
     [ea,na] = UnitVector(theta2(k));
@@ -49,29 +56,36 @@ for k=1:N
     %% Newton Raphson Method
     for i = 1:100   % máximo 100 iteraciones 
         
-        %First 4-bar linkage
+        % First 4-bar linkage
         [eb,nb] = UnitVector(t3);
         [ec,nc] = UnitVector(t4);
         
-        %Second 4-bar linkage
-        [ee,ne] = UnitVector(t4 - gamma);
+        % Second 4-bar linkage
+        [ee,ne] = UnitVector(t4 - delt_c);
         [eg,ng] = UnitVector(t5);
         [ef,nf] = UnitVector(t6);
         
-        %Ground references
-        [eg2,ng2] = UnitVector(-delta);
-        g3eg3=g2*eg2-d*ed;
+        % Ground references
+            % First loop
+            [eg2,ng2] = UnitVector(-gamma);
+            % Second loop
+            h=g2*eg2-d*ed;
         
-        %Phi matrix
-        phi(:,1) = [a*ea+b*eb-c*ec-d*ed;
-                    g*ee+e*ef-f*eg-g3eg3];
-        %Matrix with variables  
+        % Phi matrix
+        phi(:,1) = [a*ea  +  b*eb  -  c*ec  -  d*ed;
+                    g*ee  +  e*ef  -  f*eg  -   h];
+                
+        % Matrix with variables  
         % q = [theta3, theta4, theta5, theta6]
-        %Jacobian matrix
-        J = [b*nb,-c*nc,zeros(2,1),zeros(2,1);
-             zeros(2,1), -g*ne, -f*ng, e*nf ]; % [4x4]
         
-        dq = -J\phi;     % - inv(J)*phi
+        % Jacobian matrix
+        J = [   b*nb,    -c*nc, zeros(2,1), zeros(2,1);
+             zeros(2,1), -g*ne,    -f*ng,      e*nf ]; 
+        
+        % -inv(J)*phi
+        dq = -J\phi;     
+        
+        % Changing the angles
         t3 = t3 + dq(1);
         t4 = t4 + dq(2);
         t5 = t5 + dq(3);
@@ -84,45 +98,48 @@ for k=1:N
     end
     %%
     
+    % Use the angles to plot 
     theta3(k) = t3;
     theta4(k) = t4;
     theta5(k) = t5;
     theta6(k) = t6;
     
     %% Simulation
-    %plot_watt2(xA,xD,a,b,g2,g,f,e,ea,eb,eg2,eg,ef,ee,k);
-    %Avoid using the plot function to draw the trajectory
+    % plot_watt2(xA,xD,a,b,g2,g,f,e,ea,eb,eg2,eg,ef,ee,k);
+    % Avoid using the plot function to draw the trajectory
     
     set(groot,'defaultLineLineWidth',5.0)
     color = [135 206 250]./255;
     
-    % Find the positions of points B,C,D,C2,D2
+    % Find the positions of points 
     AB(:,k) = FindPos( xA, a, ea);
     BC(:,k) = FindPos( AB(:,k), b, eb);
     AF(:,k) = FindPos( xA, g2, eg2);
-    DE(:,k) = FindPos( xD, g, ee);
+    DE(:,k) = FindPos( xD,  g,  ee);
     FG(:,k) = FindPos( AF(:,k), f, eg);  
     EG(:,k) = FindPos( DE(:,k), e, ef);
     
     % Draw the lines
-    plot([xA(1) AB(1,k)],[xA(2) AB(2,k)]);
+    plot([xA(1) AB(1,k)],[xA(2) AB(2,k)]);      % AB
     hold on;
-    plot([AB(1,k) BC(1,k)],[AB(2,k) BC(2,k)]);
-    plot([AF(1,k) FG(1,k)],[AF(2,k) FG(2,k)]);
-    plot([DE(1,k) EG(1,k)],[DE(2,k) EG(2,k)]);
+    plot([AB(1,k) BC(1,k)],[AB(2,k) BC(2,k)]);  % BC
+    plot([AF(1,k) FG(1,k)],[AF(2,k) FG(2,k)]);  % FG
+    plot([DE(1,k) EG(1,k)],[DE(2,k) EG(2,k)]);  % DE
     
-    %3 pin bars
+    % Pin bars
     fill([xA(1) xD(1) AF(1,k) xA(1)],...
-        [xA(2) xD(2) AF(2,k) xA(2)],color);
+         [xA(2) xD(2) AF(2,k) xA(2)],color);    % ADF
     fill([xD(1) BC(1,k) DE(1,k) xD(1)],...
-        [xD(2) BC(2,k) DE(2,k) xD(2)],color);
+        [xD(2) BC(2,k) DE(2,k) xD(2)],color);   % DCE
     
-    %Drawing trajectory
+    % Drawing trajectory
     p1=plot(AB(1,:),AB(2,:),'.r');
     p2=plot(DE(1,:),DE(2,:),'g');
     p3=plot(FG(1,:),FG(2,:),'.b');
     
-    p1.LineWidth=2;p2.LineWidth=2;p3.LineWidth=2;
+    p1.LineWidth=2;
+    p2.LineWidth=2;
+    p3.LineWidth=2;
     
     hold off;
     xlim([-100 350]);
@@ -135,9 +152,14 @@ for k=1:N
     pause(0.01)
 end
 
-figure;
-plot(theta3);hold on;
-plot(theta4);plot(theta5);plot(theta6);
+% Plot the displacemnt of the angles
+figure(2);
+
+plot(theta3);
+hold on;
+plot(theta4);
+plot(theta5);
+plot(theta6);
 xlabel('N° samples')
 ylabel('angle (°)')
 axis tight
